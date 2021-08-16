@@ -351,7 +351,7 @@ const waitFramesLowerBound = 0;
 const minSliderValue = 0;
 const maxSliderValue = 99;
 
-const deadCellColor = "#cccccc";
+const deadCellColor = "#ffffff";
 const liveCellColor = "#161d20";
 //======================================================================================================================
 
