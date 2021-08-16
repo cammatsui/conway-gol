@@ -1,18 +1,5 @@
 //======================================================================================================================
-/**
- * Determine if the given 2d array <code>arr</code> is rectangular.
- * 
- * @param {*} arr The array to check.
- * @returns A boolean indicating whether the array is rectangular.
- */
-function isRectangular(arr) {
-    var height  = arr.length;
-    var width   = arr[0].length;
-    for (var i = 1; i < height; i++) {
-        if (arr[i] != width) return false;
-    }
-    return true;
-} // isRectangular
+// GRID LOGIC FUNCTIONS
 //======================================================================================================================
 
 
@@ -55,13 +42,14 @@ function createBlankGrid(height, width) {
  */
 function getCellNeighbors(cellRow, cellCol, grid) {
     var neighbors = [];
-    for (var rowShift in [-1, 0, 1]) {
-        for (var colShift in [-1, 0, 1]) {
+    for (var rowShift = -1; rowShift < 2; rowShift++) {
+        for (var colShift = -1; colShift < 2; colShift++) {
             if (colShift == 0 && rowShift == 0) continue;
             var neighborRow = cellRow + rowShift;
             var neighborCol = cellCol + colShift;
-            if ((neighborRow >= 0 && neighborRow < grid.height) && (neighborCol >= 0 && neighborCol < grid.width))
+            if ((neighborRow >= 0 && neighborRow < grid.height) && (neighborCol >= 0 && neighborCol < grid.width)) {
                 neighbors.push({row: neighborRow, col: neighborCol});
+            }
         }
     }
     return neighbors;
@@ -82,7 +70,8 @@ function getCellNeighbors(cellRow, cellCol, grid) {
 function getNumLiveNeighbors(cellRow, cellCol, grid) {
     var cellNeighbors = getCellNeighbors(cellRow, cellCol, grid);
     var numLive = 0;
-    for (var cellNeighbor in cellNeighbors) {
+    for (var i = 0; i < cellNeighbors.length; i++) {
+        var cellNeighbor = cellNeighbors[i];
         if (grid.arr[cellNeighbor.row][cellNeighbor.col]) numLive += 1;
     }
     return numLive;
@@ -120,7 +109,7 @@ function computeNextGrid(grid) {
     for (var row = 0; row < grid.height; row++) {
         for (var col = 0; col < grid.width; col++) {
             var numLiveNeighbors = getNumLiveNeighbors(row, col, grid);
-            nextGrid[row][col] = cellRule(grid.arr[row][col], numLiveNeighbors);
+            nextGrid.arr[row][col] = cellRule(grid.arr[row][col], numLiveNeighbors);
         }
     }
     return nextGrid;
@@ -130,31 +119,57 @@ function computeNextGrid(grid) {
 
 
 //======================================================================================================================
-/**
- * Draw a <code>grid</code> onto the <code>canvas</code> from the given parameters.
- * 
- * @param {*} grid The <code>grid</code> to draw.
- * @param {*} canvas The <code>canvas</code> to draw onto.
- * @param {*} cellLength The length of cells.
- * @param {*} cellBorderWidth The border width of cells.
- * @param {*} cellBorderColor The border color of cells.
- * @param {*} liveColor The fill color for live cells.
- * @param {*} deadColor The fill color for dead cells.
- */
-function drawGrid(grid, canvas, cellLength, cellBorderWidth, cellBorderColor, liveColor, deadColor) {
-    var trueCellLength = cellLength + cellBorderWidth;
-    var currentX = 0;
-    var currentY = 0;
+function expandGrid(grid) {
+    cellDimensions = getCellDimensions(grid.width+2, canvas);
+    var expandedGrid = createBlankGrid(Math.floor(canvas.height / cellDimensions.cellLength), grid.width+2);
     for (var row = 0; row < grid.height; row++) {
         for (var col = 0; col < grid.width; col++) {
-            var fillColor = (grid.arr[row][col]) ? liveColor : deadColor;
-            drawCell(canvas, currentX, currentY, cellLength, cellBorderWidth, cellBorderColor, fillColor);
-            currentX += trueCellLength;
+            expandedGrid.arr[row+1][col+1] = grid.arr[row][col];
         }
-        currentX = 0;
-        currentY += trueCellLength;
     }
-} // drawGrid ()
+    return expandedGrid;
+} // expandGrid ()
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+function shrinkGrid(grid) {
+    if (grid.height <= 2 || grid.width <= 2) return;
+    cellDimensions = getCellDimensions(grid.width-2, canvas);
+    var shrunkGrid = createBlankGrid(Math.floor(canvas.height / cellDimensions.cellLength), grid.width-2);
+    for (var row = 0; row < shrunkGrid.height; row++) {
+        for (var col = 0; col < shrunkGrid.width; col++) {
+            shrunkGrid.arr[row][col] = grid.arr[row+1][col+1];
+        }
+    }
+    return shrunkGrid;
+} // shrinkGrid ()
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+// DRAWING FUNCTIONS
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+/**
+ * Perform the action ("shrink" or "expand") on the grid and redraw it.
+ * 
+ * @param {*} action The action to perform.
+ */
+function drawChangedGrid(action) {
+    // action is "shrink" or "expand"
+    var newGrid;
+    if (action == "shrink") newGrid = shrinkGrid(grid);
+    if (action == "expand") newGrid = expandGrid(grid);
+    grid = newGrid;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGridFromDimensions(grid, cellDimensions, 2, "black", liveCellColor, deadCellColor);
+} // drawChangedGrid ()
 //======================================================================================================================
 
 
@@ -177,7 +192,201 @@ function drawCell(canvas, cornerX, cornerY, length, borderWidth, borderColor, fi
     context.strokeStyle = borderColor;
     context.lineWidth = borderWidth;
     context.fillStyle = fillColor;
-    context.rect(cornerX, cornerY, length-borderWidth);
+    context.rect(cornerX, cornerY, length-borderWidth, length-borderWidth);
+    context.stroke();
     context.fill();
 } // drawCell ()
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+/**
+ * Draw a <code>grid</code> onto the <code>canvas</code> from the given parameters.
+ * 
+ * @param {*} grid The <code>grid</code> to draw.
+ * @param {*} cellLength The length of cells.
+ * @param {*} cellBorderWidth The border width of cells.
+ * @param {*} cellBorderColor The border color of cells.
+ * @param {*} liveColor The fill color for live cells.
+ * @param {*} deadColor The fill color for dead cells.
+ */
+function drawGrid(cornerX, cornerY, grid, cellLength, cellBorderWidth, cellBorderColor, liveColor, deadColor) {
+    var currentX = cornerX + cellBorderWidth / 2;
+    var currentY = cornerY + cellBorderWidth / 2;
+    for (var row = 0; row < grid.height; row++) {
+        for (var col = 0; col < grid.width; col++) {
+            var fillColor = (grid.arr[row][col]) ? liveColor : deadColor;
+            drawCell(canvas, currentX, currentY, cellLength, cellBorderWidth, cellBorderColor, fillColor);
+            currentX += cellLength;
+        }
+        currentX = cornerX + cellBorderWidth / 2;
+        currentY += cellLength;
+    }
+} // drawGrid ()
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+/**
+ * Get the canvas dimensions for cells given the grid width.
+ * 
+ * @param {*} gridWidth The number of columns on the grid.
+ * @returns An object containing the cell lengths, and corner coordinates for the drawing.
+ */
+function getCellDimensions(gridWidth) {
+    var cellLength = canvas.width / gridWidth; 
+    var cornerX = (canvas.width - (cellLength * gridWidth)) / 2;
+    var cornerY = 0;
+    return {cellLength : cellLength, cornerX : cornerX, cornerY : cornerY};
+} // getCellDimensions ()
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+/**
+ * Draw a <code>grid</code> to the <code>canvas</code> given the <code>cellDimensions</code> object.
+ * 
+ * @param {*} grid The <code>grid</code> to draw.
+ * @param {*} cellDimensions The object that is a result of <code>getCellDimensions()</code>.
+ * @param {*} cellBorderWidth The border width for cells.
+ * @param {*} cellBorderColor The border color for cells.
+ * @param {*} liveColor The fill color for live cells.
+ * @param {*} deadColor The fill color for dead cells.
+ */
+function drawGridFromDimensions(grid, cellDimensions, cellBorderWidth, cellBorderColor, liveColor, deadColor) {
+    drawGrid(cellDimensions.cornerX, cellDimensions.cornerY, grid, cellDimensions.cellLength, cellBorderWidth,
+             cellBorderColor, liveColor, deadColor);
+} // drawGridWithinCanvas ()
+//======================================================================================================================
+
+
+//======================================================================================================================
+/**
+ * Convert the slider value (from 0 to 99) to <code>waitFrames</code> for the speed of the animation.
+ * 
+ * @param {*} sliderValue The value of the slider.
+ * @returns The corresponding value for <code>waitFrames</code> giving the animation's speed.
+ */
+function getWaitFramesFromSliderValue(sliderValue) {
+    var slope = (waitFramesLowerBound-waitFramesUpperBound)/(maxSliderValue-minSliderValue);
+    return waitFramesUpperBound+Math.floor(slope*sliderValue);
+} // getWaitFramesFromSliderValue ()
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+/**
+ * Update the variable <code>waitFrames</code> given the speed slider's value.
+ */
+function updateWaitFrames() {
+    numFrames = 0;
+    var sliderValue = document.getElementById("speedSlider").value;
+    waitFrames = getWaitFramesFromSliderValue(sliderValue);
+
+} // updateWaitFrames ()
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+/**
+ * Play or pause the animation, and change the play/pause button's text.
+ */
+function playPause() {
+    var playPauseButton = document.getElementById('playPause');
+    if (paused) playPauseButton.innerHTML = "Pause";
+    else playPauseButton.innerHTML = "Play";
+    paused = !paused;
+    animate();
+} // playPause ()
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+/**
+ * Given a point on the canvas, get the corresponding row and column on the <code>grid</code>.
+ * 
+ * @param {*} x The x coordinate of the point on the canvas.
+ * @param {*} y The y coordinate of the point on the canvas.
+ * @returns The corresponding <code>grid</code> row and column.
+ */
+function getRowColumn(x, y) {
+    var row = Math.floor((y-cellDimensions.cornerY) / cellDimensions.cellLength);
+    var col = Math.floor((x-cellDimensions.cornerX) / cellDimensions.cellLength);
+    return {row: row, col: col};
+} // getRowColumn ()
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+/**
+ * The animation loop.
+ */
+function animate() {
+    if (paused) return;
+    if (numFrames == waitFrames) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        numFrames = 0;
+        grid = computeNextGrid(grid);
+        drawGridFromDimensions(grid, cellDimensions, 2, "black", liveCellColor, deadCellColor);
+    } else {
+        numFrames += 1;
+    }
+    requestAnimationFrame(animate);
+} // animate ()
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+// ANIMATION PARAMETERS
+const waitFramesUpperBound = 60;
+const waitFramesLowerBound = 0;
+const minSliderValue = 0;
+const maxSliderValue = 99;
+
+const deadCellColor = "#cccccc";
+const liveCellColor = "#161d20";
+//======================================================================================================================
+
+
+
+//======================================================================================================================
+// ANIMATION SETUP
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight * 0.85;
+
+const startWidth = 80;
+var cellDimensions = getCellDimensions(startWidth, canvas);
+const startHeight = Math.floor(canvas.height / cellDimensions.cellLength);
+
+var grid = createBlankGrid(startHeight, startWidth);
+var waitFrames = getWaitFramesFromSliderValue(50);
+var ctx = canvas.getContext("2d");
+var numFrames = 0;
+var paused = true;
+
+drawGridFromDimensions(grid, cellDimensions, 2, "black", liveCellColor, deadCellColor);
+animate();
+
+// Add event listener to change state of cells when clicked when animation is paused.
+canvas.addEventListener('click', event => {
+    if (paused) {
+        let bound = canvas.getBoundingClientRect();
+        let x = event.clientX - bound.left - canvas.clientLeft;
+        let y = event.clientY - bound.top - canvas.clientTop;
+        rowCol = getRowColumn(x, y);
+        if ((rowCol.col >= 0 && rowCol.col < grid.width) && (rowCol.row >= 0 && rowCol.row < grid.height)) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            grid.arr[rowCol.row][rowCol.col] = !grid.arr[rowCol.row][rowCol.col];
+            drawGridFromDimensions(grid, cellDimensions, 2, "black", liveCellColor, deadCellColor);
+        }
+    }
+});
 //======================================================================================================================
